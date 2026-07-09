@@ -10,20 +10,14 @@ const LOG_HEADERS = [
   "task_id",
   "block_name",
   "difficulty",
-  "target_color",
-  "target_shape",
-  "choice_color",
-  "choice_shape",
   "event_type",
   "shown_at",
   "event_at",
   "response_time_ms",
   "is_correct",
-  "hint_count",
   "idle_detected",
   "idle_count",
   "idle_total_ms",
-  "skipped",
   "rest_requested",
   "rest_duration_ms",
   "timer_visible",
@@ -43,7 +37,6 @@ let sessionBackupKey = "";
 let collectorUrl = "";
 let timerVisible = true;
 let restSeconds = 10;
-let maxDurationMs = 5 * 60 * 1000;
 let choiceCount = 2;
 let choiceCountQueue = [];
 let sessionStart = 0;
@@ -68,7 +61,6 @@ const workspace = document.getElementById("workspace");
 const doneScreen = document.getElementById("doneScreen");
 const participantInput = document.getElementById("participantInput");
 const restSecondsInput = document.getElementById("restSecondsInput");
-const maxMinutesInput = document.getElementById("maxMinutesInput");
 const timerToggle = document.getElementById("timerToggle");
 const startBtn = document.getElementById("startBtn");
 const restartBtn = document.getElementById("restartBtn");
@@ -319,7 +311,8 @@ async function createSession() {
   const payload = {
     participant_id: participantId,
     timer_visible: timerVisible,
-    rest_seconds: restSeconds
+    rest_seconds: restSeconds,
+    time_limit: "none"
   };
 
   if (shouldTryServerApi() && serverLoggingAvailable !== false) {
@@ -363,17 +356,17 @@ function buildLog(eventType, choiceKey = "", extra = {}) {
     `correct_choice=${currentTask.targetKey}`,
     `correct_count=${currentTask.options.find((option) => option.key === currentTask.targetKey).count}`,
     `difference=${currentTask.difference}`,
-    `max_duration_ms=${maxDurationMs}`,
     `max_questions=${MAX_QUESTIONS}`,
     `choice_count=${choiceCount}`,
     `session_elapsed_ms=${Math.round(activeSessionElapsed(now))}`,
     `session_rest_ms=${Math.round(sessionRestMs)}`,
+    "time_limit=none",
     "active_time_excludes_rest=true",
     "skip_button_removed=true"
   ];
 
   if (extra.note) noteParts.push(extra.note);
-  if (eventType === "end" || eventType === "timeout") {
+  if (eventType === "end" || eventType === "max_questions") {
     noteParts.push(`total_answered=${answeredCount}`, `total_correct=${correctCount}`);
   }
 
@@ -384,20 +377,14 @@ function buildLog(eventType, choiceKey = "", extra = {}) {
     task_id: currentTask.id,
     block_name: "quantity_endurance",
     difficulty: currentTask.difficulty,
-    target_color: "",
-    target_shape: "",
-    choice_color: "",
-    choice_shape: "",
     event_type: eventType,
     shown_at: new Date(questionStart).toISOString(),
     event_at: new Date(now).toISOString(),
     response_time_ms: Math.round(activeQuestionElapsed(now)),
     is_correct: isCorrect,
-    hint_count: 0,
     idle_detected: idleCount > 0,
     idle_count: idleCount,
     idle_total_ms: Math.round(currentIdleTotal(now)),
-    skipped: false,
     rest_requested: eventType === "rest",
     rest_duration_ms: extra.rest_duration_ms || 0,
     timer_visible: timerVisible,
@@ -443,10 +430,6 @@ function tick() {
   if (idleStart === null && now - lastActionAt >= IDLE_THRESHOLD_MS) {
     idleStart = lastActionAt + IDLE_THRESHOLD_MS;
     idleCount += 1;
-  }
-
-  if (elapsed >= maxDurationMs) {
-    finish("timeout");
   }
 }
 
@@ -511,11 +494,7 @@ async function finish(reason) {
   timer = null;
 
   if (sessionId && currentTask) {
-    const eventType = reason === "timeout"
-      ? "timeout"
-      : reason === "max_questions"
-        ? "max_questions"
-        : "end";
+    const eventType = reason === "max_questions" ? "max_questions" : "end";
     await saveLog(buildLog(eventType, "", { note: `reason=${reason}` }));
   }
 
@@ -536,7 +515,6 @@ async function finish(reason) {
 async function start() {
   participantId = participantInput.value.trim() || "P001";
   restSeconds = Number(restSecondsInput.value) || 10;
-  maxDurationMs = (Number(maxMinutesInput.value) || 5) * 60 * 1000;
   timerVisible = timerToggle.checked;
   collectorUrl = getCollectorUrl();
 
@@ -565,8 +543,8 @@ async function start() {
     participant_id: participantId,
     timer_visible: timerVisible,
     rest_seconds: restSeconds,
-    max_duration_ms: maxDurationMs,
     max_questions: MAX_QUESTIONS,
+    time_limit: "none",
     task_type: TASK_TYPE,
     user_agent: navigator.userAgent,
     page_url: location.href
