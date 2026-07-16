@@ -27,7 +27,7 @@ learning-log-app/
 ├── endurance-version.html   画面構成・CSS・GitHub Pagesで開く本体ページ
 ├── endurance-version.js     問題生成・画面制御・ログ作成・自動送信処理
 ├── collector-config.js      Google Apps Scriptの自動回収URL設定
-└── README.md                この仕様書
+└── README.md                仕様書
 ```
 
 ## アプリの概要
@@ -237,7 +237,4 @@ https://maria202000.github.io/learning-log-app/endurance-version.html?v=20260709
 
 - 参加者の実名や個人情報は入力しない。
 - 参加者IDは `P001` のような匿名番号にする。
-- 本アプリは医療的な診断や発達特性の判定には使わない。
-- 実験前に、本人または保護者に研究目的とデータ取得内容を説明する。
-- Googleスプレッドシートの共有範囲に注意する。
 - 自動回収が失敗する可能性があるため、必要に応じてCSVも保存する。
