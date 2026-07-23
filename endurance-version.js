@@ -36,6 +36,7 @@ let sessionLogs = [];
 let sessionBackupKey = "";
 let collectorUrl = "";
 let cloudCollectionFailed = false;
+const pendingCloudPosts = new Set();
 let timerVisible = true;
 let restSeconds = 10;
 let choiceCount = 2;
@@ -183,6 +184,25 @@ async function postToCollector(type, data) {
     console.warn("cloud collection failed; CSV backup remains available", error);
     return false;
   }
+}
+
+function queueCloudPost(type, data) {
+  const pendingPost = postToCollector(type, data)
+    .then((delivered) => {
+      if (!delivered) cloudCollectionFailed = true;
+      return delivered;
+    })
+    .catch((error) => {
+      cloudCollectionFailed = true;
+      console.warn("cloud collection failed; CSV backup remains available", error);
+      return false;
+    })
+    .finally(() => {
+      pendingCloudPosts.delete(pendingPost);
+    });
+
+  pendingCloudPosts.add(pendingPost);
+  return pendingPost;
 }
 
 function activeSessionElapsed(now = Date.now()) {
@@ -404,7 +424,7 @@ function buildLog(eventType, choiceKey = "", extra = {}) {
   };
 }
 
-async function saveLog(log) {
+async function saveLog(log, options = {}) {
   const localLog = {
     ...log,
     received_at: new Date().toISOString()
@@ -415,12 +435,11 @@ async function saveLog(log) {
     downloadCsvBtn.disabled = sessionLogs.length === 0;
   }
 
-  const cloudDelivered = await postToCollector("log", localLog);
-  if (!cloudDelivered) {
-    cloudCollectionFailed = true;
-  }
+  const cloudPost = queueCloudPost("log", localLog);
 
-  if (serverLoggingAvailable === false) return cloudDelivered;
+  if (serverLoggingAvailable === false) {
+    return options.waitForCloud ? cloudPost : true;
+  }
 
   try {
     await postJson("/api/logs", log);
@@ -428,7 +447,7 @@ async function saveLog(log) {
     serverLoggingAvailable = false;
     console.warn("server log failed, local CSV mode continues", error);
   }
-  return cloudDelivered;
+  return options.waitForCloud ? cloudPost : true;
 }
 
 function tick() {
@@ -507,8 +526,12 @@ async function finish(reason) {
   let endDelivered = false;
   if (sessionId && currentTask) {
     const eventType = reason === "max_questions" ? "max_questions" : "end";
-    endDelivered = await saveLog(buildLog(eventType, "", { note: `reason=${reason}` }));
+    endDelivered = await saveLog(
+      buildLog(eventType, "", { note: `reason=${reason}` }),
+      { waitForCloud: true }
+    );
   }
+  await Promise.allSettled(Array.from(pendingCloudPosts));
 
   doneAnsweredText.textContent = answeredCount;
   doneTimeText.textContent = formatSeconds(activeSessionElapsed());
@@ -546,6 +569,7 @@ async function start() {
   isLocked = false;
   isFinished = false;
   cloudCollectionFailed = false;
+  pendingCloudPosts.clear();
   answeredText.textContent = "0";
   timeText.textContent = "0秒";
   timerMetric.style.display = timerVisible ? "grid" : "none";
@@ -554,7 +578,7 @@ async function start() {
     downloadCsvBtn.disabled = true;
   }
 
-  postToCollector("session", {
+  queueCloudPost("session", {
     created_at: new Date(sessionStart).toISOString(),
     session_id: sessionId,
     participant_id: participantId,
@@ -564,9 +588,6 @@ async function start() {
     time_limit: "none",
     task_type: TASK_TYPE,
     user_agent: navigator.userAgent,
-    page_url: location.href
-  }).then((delivered) => {
-    if (!delivered) cloudCollectionFailed = true;
   });
 
   startScreen.style.display = "none";

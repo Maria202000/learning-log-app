@@ -435,6 +435,40 @@
       text-align: left;
     }
 
+    @media (max-width: 1024px) {
+      .task {
+        padding: 20px;
+      }
+
+      .choices {
+        gap: 10px;
+      }
+
+      .choices[data-count="4"] {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .choices[data-count="6"] {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .choice {
+        min-height: 180px;
+        padding: 10px;
+      }
+
+      .dot-board {
+        width: min(100%, 180px);
+        padding: 10px;
+        gap: 6px;
+      }
+
+      .dot {
+        width: clamp(20px, 3.6vw, 32px);
+        height: clamp(20px, 3.6vw, 32px);
+      }
+    }
+
     @media (max-width: 760px) {
       header {
         display: grid;
