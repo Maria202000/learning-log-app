@@ -26,8 +26,11 @@ https://maria202000.github.io/learning-log-app/endurance-version.html
 learning-log-app/
 ├── endurance-version.html   画面構成・CSS・GitHub Pagesで開く本体ページ
 ├── endurance-version.js     問題生成・画面制御・ログ作成・自動送信処理
+├── observer.html            観察者がスマホで記録する画面
+├── observer.js              観察イベントの作成・自動送信・予備保存処理
 ├── collector-config.js      Google Apps Scriptの自動回収URL設定
-└── README.md                仕様書
+├── google-apps-script-code.gs  Googleスプレッドシート側の回収処理
+└── README.md                この仕様書
 ```
 
 ## アプリの概要
@@ -77,9 +80,9 @@ learning-log-app/
 
 終了画面では、回答数と経過時間を表示します。
 
-自動回収URLが設定されている場合は、ログがGoogleスプレッドシートへ送信されます。CSV保存ボタンは、通信失敗時や確認用の予備として残しています。
+自動回収URLが設定され、送信処理に失敗がなければ、ログがGoogleスプレッドシートへ送信されます。この場合、終了画面にCSV保存ボタンは表示されません。
 
-自動回収URLが設定されていない場合は、CSVを保存して研究者が回収します。
+自動回収URLが設定されていない場合、または送信処理に失敗した場合だけ、終了画面にCSV保存ボタンが表示されます。保存後は、通常、端末の「ダウンロード」からCSVを確認できます。
 
 ## 取得するログ
 
@@ -153,12 +156,41 @@ window.LEARNING_LOG_COLLECTOR_URL = "";
 
 ## Googleスプレッドシート側に保存される内容
 
-Google Apps Script側では、主に以下の2種類のシートに保存します。
+Google Apps Script側では、以下のシートに保存します。
 
 | シート名 | 内容 |
 |---|---|
 | sessions | 実験開始時の情報 |
 | logs | 回答、休憩、終了などの操作ログ |
+| observer_sessions | 観察者による観察開始時の情報 |
+| observer_events | 観察者がスマホで記録した行動・声かけ・訂正・終了 |
+
+## 観察者用スマホアプリ
+
+観察者は、学習者用アプリとは別のスマートフォンで以下を開きます。
+
+```text
+https://maria202000.github.io/learning-log-app/observer.html
+```
+
+学習者側と同じ参加者IDを入力し、実施回数には実験記録で決めた番号を入力して観察を開始します。実験中は、外から見えた行動に対応するボタンをタップします。
+
+| ボタン | observer_eventsに保存される内容 |
+|---|---|
+| 手が止まった | hand_stopped |
+| よそ見 | look_away |
+| 姿勢変化・離席 | posture_or_leave |
+| 連打・操作の迷い | repeated_tap |
+| 発言した | utterance |
+| 「休む」を押した | pressed_rest |
+| 「終わる」を押した | pressed_end |
+| その他 | other |
+| 声かけ・介入をした | intervention |
+| 直前を取り消す | void。取り消すイベントのevent_idも記録する |
+
+各タップでは、イベント時刻 `event_at` と観察開始からの経過時間 `elapsed_ms` が自動保存されます。問題番号が分かる場合だけ `question_index` を入力します。問題番号を入力できなかった場合も、主に `participant_id` と `event_at` を使って学習者側のログと照合できます。`experiment_run` は観察記録を実施回ごとに整理する補助情報です。
+
+スマートフォン内にも予備データを保持し、終了画面からCSVを保存できます。ただし、研究で使う主データはGoogleスプレッドシートの `observer_events` です。
 
 ## 使用手順
 
@@ -206,9 +238,14 @@ GitHub Pages上のアプリを更新するときは、以下のファイルをGi
 ```text
 endurance-version.html
 endurance-version.js
+observer.html
+observer.js
 collector-config.js
+google-apps-script-code.gs
 README.md
 ```
+
+`google-apps-script-code.gs` を変更した場合は、Google Apps Script側にもコードを貼り直し、「デプロイを管理」→既存デプロイの編集→「新しいバージョン」で更新してください。この方法なら現在の自動回収URLを維持できます。GitHubへアップロードするだけでは、Googleスプレッドシート側の回収処理は更新されません。
 
 更新後、反映まで30秒から数分かかる場合があります。
 
@@ -237,4 +274,7 @@ https://maria202000.github.io/learning-log-app/endurance-version.html?v=20260709
 
 - 参加者の実名や個人情報は入力しない。
 - 参加者IDは `P001` のような匿名番号にする。
+- 本アプリは医療的な診断や発達特性の判定には使わない。
+- 実験前に、本人または保護者に研究目的とデータ取得内容を説明する。
+- Googleスプレッドシートの共有範囲に注意する。
 - 自動回収が失敗する可能性があるため、必要に応じてCSVも保存する。

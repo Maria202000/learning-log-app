@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#234E52">
+  <title>観察記録 | 学習ログ研究</title>
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --surface: #ffffff;
+      --text: #172033;
+      --muted: #667085;
+      --line: #d4dae3;
+      --green: #16665f;
+      --green-soft: #e6f2ef;
+      --blue: #245ca6;
+      --blue-soft: #eaf1fb;
+      --amber: #a15c08;
+      --amber-soft: #fff3df;
+      --red: #b42318;
+      --red-soft: #fff0ee;
+      --shadow: 0 5px 18px rgba(23, 32, 51, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Yu Gothic", "Hiragino Kaku Gothic ProN", Meiryo, system-ui, sans-serif;
+      letter-spacing: 0;
+    }
+
+    button, input, textarea { font: inherit; }
+
+    button {
+      border: 2px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      font-weight: 800;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 58px;
+      padding: 10px max(14px, env(safe-area-inset-left));
+      background: var(--surface);
+      border-bottom: 1px solid var(--line);
+    }
+
+    h1, h2, p { margin: 0; }
+    h1 { font-size: 20px; }
+    h2 { font-size: 21px; }
+
+    .badge {
+      flex: 0 0 auto;
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: #eef1f5;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .badge.recording { background: var(--green-soft); color: var(--green); }
+    .badge.error { background: var(--red-soft); color: var(--red); }
+
+    main {
+      width: min(620px, 100%);
+      margin: 0 auto;
+      padding: 14px 14px calc(22px + env(safe-area-inset-bottom));
+    }
+
+    .panel {
+      display: grid;
+      gap: 16px;
+      padding: 18px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .hidden { display: none !important; }
+
+    .lead {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .form-grid { display: grid; gap: 13px; }
+
+    label {
+      display: grid;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    input, textarea {
+      width: 100%;
+      min-height: 50px;
+      border: 2px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      background: #fbfcfd;
+      color: var(--text);
+      font-size: 17px;
+    }
+
+    textarea {
+      min-height: 72px;
+      resize: vertical;
+      line-height: 1.5;
+    }
+
+    input:focus, textarea:focus {
+      outline: 3px solid rgba(36, 92, 166, 0.18);
+      border-color: var(--blue);
+    }
+
+    .primary {
+      min-height: 58px;
+      border-color: var(--blue);
+      background: var(--blue);
+      color: #ffffff;
+      font-size: 18px;
+    }
+
+    .session-strip {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .metric {
+      min-height: 62px;
+      display: grid;
+      align-content: center;
+      gap: 2px;
+      padding: 8px 10px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .metric b { font-size: 18px; line-height: 1.2; }
+    .metric span { color: var(--muted); font-size: 11px; font-weight: 800; }
+
+    .record-area {
+      display: grid;
+      gap: 14px;
+    }
+
+    .quick-inputs {
+      display: grid;
+      grid-template-columns: 150px 1fr;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .event-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: baseline;
+    }
+
+    .event-title span { color: var(--muted); font-size: 12px; }
+
+    .event-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 9px;
+    }
+
+    .event-btn {
+      min-height: 72px;
+      padding: 8px 10px;
+      border-color: #a9c9c4;
+      background: var(--green-soft);
+      color: #174c48;
+      font-size: 16px;
+      line-height: 1.3;
+    }
+
+    .event-btn.behavior {
+      border-color: #b9cbe3;
+      background: var(--blue-soft);
+      color: #1f4d86;
+    }
+
+    .event-btn.end-event {
+      border-color: #edb5ae;
+      background: var(--red-soft);
+      color: var(--red);
+    }
+
+    .intervention-btn {
+      min-height: 62px;
+      width: 100%;
+      border-color: #e7bd79;
+      background: var(--amber-soft);
+      color: var(--amber);
+      font-size: 17px;
+    }
+
+    .send-status {
+      min-height: 24px;
+      color: var(--green);
+      font-size: 13px;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .send-status.error { color: var(--red); }
+
+    .recent {
+      border-top: 1px solid var(--line);
+      padding-top: 12px;
+    }
+
+    .recent h2 { margin-bottom: 8px; font-size: 16px; }
+    .recent-list { display: grid; gap: 6px; }
+
+    .recent-item {
+      display: grid;
+      grid-template-columns: 58px 1fr;
+      gap: 8px;
+      padding: 8px 10px;
+      background: #f8fafb;
+      border-left: 4px solid var(--green);
+      font-size: 13px;
+    }
+
+    .recent-item time { color: var(--muted); font-variant-numeric: tabular-nums; }
+    .recent-item.voided { opacity: 0.55; text-decoration: line-through; border-left-color: var(--red); }
+    .empty { color: var(--muted); font-size: 13px; }
+
+    .bottom-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 9px;
+      padding-top: 4px;
+    }
+
+    .secondary, .danger { min-height: 54px; }
+    .secondary { background: #ffffff; }
+    .danger { border-color: var(--red); background: var(--red); color: #ffffff; }
+
+    .done-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .done-stat {
+      padding: 15px;
+      border: 1px solid var(--line);
+      background: #f8fafb;
+      border-radius: 8px;
+    }
+
+    .done-stat b { display: block; font-size: 26px; }
+    .done-stat span { color: var(--muted); font-size: 12px; font-weight: 800; }
+
+    @media (max-width: 420px) {
+      main { padding: 10px 10px calc(18px + env(safe-area-inset-bottom)); }
+      .panel { padding: 14px; }
+      .quick-inputs { grid-template-columns: 120px 1fr; }
+      .event-btn { min-height: 66px; font-size: 15px; }
+      .metric b { font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <h1>観察記録</h1>
+    <span class="badge" id="stateBadge">待機中</span>
+  </header>
+
+  <main>
+    <section class="panel" id="startScreen">
+      <h2>観察を始める</h2>
+      <p class="lead">学習者側と同じ参加者IDを入力します。実施回数は実験記録で決めた番号を使い、実名は入力しません。</p>
+      <div class="form-grid">
+        <label>
+          参加者ID
+          <input id="participantInput" type="text" value="P001" autocomplete="off" inputmode="text">
+        </label>
+        <label>
+          観察者ID
+          <input id="observerInput" type="text" value="O01" autocomplete="off" inputmode="text">
+        </label>
+        <label>
+          実施回数
+          <input id="runInput" type="number" value="1" min="1" step="1" inputmode="numeric">
+        </label>
+      </div>
+      <button class="primary" id="startBtn" type="button">観察を始める</button>
+    </section>
+
+    <section class="record-area hidden" id="recordScreen">
+      <div class="session-strip">
+        <div class="metric"><b id="participantText">P001</b><span>参加者</span></div>
+        <div class="metric"><b id="elapsedText">0:00</b><span>経過時間</span></div>
+        <div class="metric"><b id="eventCountText">0</b><span>記録件数</span></div>
+      </div>
+
+      <section class="panel">
+        <div class="quick-inputs">
+          <label>
+            問題番号（任意）
+            <input id="questionInput" type="number" min="1" step="1" inputmode="numeric" placeholder="例 35">
+          </label>
+          <label>
+            短いメモ（任意）
+            <textarea id="noteInput" rows="2" placeholder="例：15秒ほど止まった"></textarea>
+          </label>
+        </div>
+
+        <div class="event-title">
+          <h2>見えた行動をタップ</h2>
+          <span>タップ時刻を自動記録</span>
+        </div>
+
+        <div class="event-grid">
+          <button class="event-btn" data-event="hand_stopped" data-label="手が止まった" type="button">手が止まった</button>
+          <button class="event-btn" data-event="look_away" data-label="よそ見" type="button">よそ見</button>
+          <button class="event-btn" data-event="posture_or_leave" data-label="姿勢変化・離席" type="button">姿勢変化・離席</button>
+          <button class="event-btn behavior" data-event="repeated_tap" data-label="連打・操作の迷い" type="button">連打・操作の迷い</button>
+          <button class="event-btn behavior" data-event="utterance" data-label="発言した" type="button">発言した</button>
+          <button class="event-btn" data-event="pressed_rest" data-label="休むを押した" type="button">「休む」を押した</button>
+          <button class="event-btn end-event" data-event="pressed_end" data-label="終わるを押した" type="button">「終わる」を押した</button>
+          <button class="event-btn behavior" data-event="other" data-label="その他" type="button">その他</button>
+        </div>
+
+        <button class="intervention-btn" data-event="intervention" data-label="観察者が声かけ・介入" type="button">声かけ・介入をした</button>
+        <p class="send-status" id="sendStatus" aria-live="polite"></p>
+
+        <section class="recent">
+          <h2>直近の記録</h2>
+          <div class="recent-list" id="recentList"><p class="empty">まだ記録はありません。</p></div>
+        </section>
+
+        <div class="bottom-actions">
+          <button class="secondary" id="undoBtn" type="button" disabled>直前を取り消す</button>
+          <button class="danger" id="finishBtn" type="button">観察を終了</button>
+        </div>
+      </section>
+    </section>
+
+    <section class="panel hidden" id="doneScreen">
+      <h2>観察を終了しました</h2>
+      <div class="done-stats">
+        <div class="done-stat"><b id="doneEventCount">0</b><span>有効な記録</span></div>
+        <div class="done-stat"><b id="doneElapsed">0:00</b><span>観察時間</span></div>
+      </div>
+      <p class="lead">記録はGoogleスプレッドシートへ送信処理されています。実験後に `observer_events` シートを確認してください。</p>
+      <button class="secondary" id="downloadBtn" type="button">予備CSVを保存</button>
+      <button class="primary" id="restartBtn" type="button">最初に戻る</button>
+    </section>
+  </main>
+
+  <script src="collector-config.js"></script>
+  <script src="observer.js"></script>
+</body>
+</html>

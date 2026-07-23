@@ -35,6 +35,7 @@ let serverLoggingAvailable = null;
 let sessionLogs = [];
 let sessionBackupKey = "";
 let collectorUrl = "";
+let cloudCollectionFailed = false;
 let timerVisible = true;
 let restSeconds = 10;
 let choiceCount = 2;
@@ -143,6 +144,10 @@ function downloadCsv() {
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+  if (doneNoteText) {
+    doneNoteText.textContent =
+      "CSVを保存しました。通常は端末の「ダウンロード」に保存されています。研究者に渡してください。";
+  }
 }
 
 function getCollectorUrl() {
@@ -160,7 +165,7 @@ function cloudPayload(type, data) {
 }
 
 async function postToCollector(type, data) {
-  if (!collectorUrl) return;
+  if (!collectorUrl) return false;
 
   try {
     await fetch(collectorUrl, {
@@ -173,8 +178,10 @@ async function postToCollector(type, data) {
       body: JSON.stringify(cloudPayload(type, data)),
       keepalive: true
     });
+    return true;
   } catch (error) {
     console.warn("cloud collection failed; CSV backup remains available", error);
+    return false;
   }
 }
 
@@ -408,9 +415,12 @@ async function saveLog(log) {
     downloadCsvBtn.disabled = sessionLogs.length === 0;
   }
 
-  postToCollector("log", localLog);
+  const cloudDelivered = await postToCollector("log", localLog);
+  if (!cloudDelivered) {
+    cloudCollectionFailed = true;
+  }
 
-  if (serverLoggingAvailable === false) return;
+  if (serverLoggingAvailable === false) return cloudDelivered;
 
   try {
     await postJson("/api/logs", log);
@@ -418,6 +428,7 @@ async function saveLog(log) {
     serverLoggingAvailable = false;
     console.warn("server log failed, local CSV mode continues", error);
   }
+  return cloudDelivered;
 }
 
 function tick() {
@@ -493,19 +504,23 @@ async function finish(reason) {
   window.clearInterval(timer);
   timer = null;
 
+  let endDelivered = false;
   if (sessionId && currentTask) {
     const eventType = reason === "max_questions" ? "max_questions" : "end";
-    await saveLog(buildLog(eventType, "", { note: `reason=${reason}` }));
+    endDelivered = await saveLog(buildLog(eventType, "", { note: `reason=${reason}` }));
   }
 
   doneAnsweredText.textContent = answeredCount;
   doneTimeText.textContent = formatSeconds(activeSessionElapsed());
+  const automaticCollectionSucceeded =
+    Boolean(collectorUrl) && endDelivered && !cloudCollectionFailed;
   if (doneNoteText) {
-    doneNoteText.textContent = collectorUrl
-      ? "ログは自動で送られます。念のためCSVも保存できます。"
-      : "CSVを保存して、研究者に送ってください。";
+    doneNoteText.textContent = automaticCollectionSucceeded
+      ? "データを送信しました。CSVの保存は必要ありません。"
+      : "データを自動送信できませんでした。CSVを保存して、研究者に渡してください。";
   }
   if (downloadCsvBtn) {
+    downloadCsvBtn.hidden = automaticCollectionSucceeded;
     downloadCsvBtn.disabled = sessionLogs.length === 0;
   }
   workspace.classList.remove("active");
@@ -530,10 +545,12 @@ async function start() {
   isResting = false;
   isLocked = false;
   isFinished = false;
+  cloudCollectionFailed = false;
   answeredText.textContent = "0";
   timeText.textContent = "0秒";
   timerMetric.style.display = timerVisible ? "grid" : "none";
   if (downloadCsvBtn) {
+    downloadCsvBtn.hidden = true;
     downloadCsvBtn.disabled = true;
   }
 
@@ -548,6 +565,8 @@ async function start() {
     task_type: TASK_TYPE,
     user_agent: navigator.userAgent,
     page_url: location.href
+  }).then((delivered) => {
+    if (!delivered) cloudCollectionFailed = true;
   });
 
   startScreen.style.display = "none";
