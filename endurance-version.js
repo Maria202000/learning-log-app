@@ -463,7 +463,7 @@ function tick() {
   }
 }
 
-async function answer(choiceKey) {
+function answer(choiceKey) {
   if (isResting || isLocked || isFinished) return;
 
   isLocked = true;
@@ -472,16 +472,16 @@ async function answer(choiceKey) {
   answeredCount += 1;
   if (log.is_correct) correctCount += 1;
   answeredText.textContent = answeredCount;
-  await saveLog(log);
+  saveLog(log);
 
-  window.setTimeout(() => {
+  window.requestAnimationFrame(() => {
     if (isFinished) return;
     if (answeredCount >= MAX_QUESTIONS) {
       finish("max_questions");
       return;
     }
     renderTask();
-  }, 250);
+  });
 }
 
 async function restTask() {
